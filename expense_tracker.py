@@ -21,7 +21,17 @@ from datetime import date, datetime
 from collections import defaultdict
 
 DATA_FILE = Path(__file__).with_name("expenses.csv")
+def parse_expense_date(value: str | None) -> date:
+    """Parse expense date or use today's date."""
+    if not value:
+        return date.today()
 
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise SystemExit(
+            f"Invalid --date format (use YYYY-MM-DD): {error}"
+        )
 @dataclass
 class Expense:
     date: str  # ISO format YYYY-MM-DD
@@ -32,13 +42,7 @@ class Expense:
     @staticmethod
     def from_args(args: argparse.Namespace) -> "Expense":
         # Parse/validate date
-        if args.date:
-            try:
-                d = datetime.strptime(args.date, "%Y-%m-%d").date()
-            except ValueError as e:
-                raise SystemExit(f"Invalid --date format (use YYYY-MM-DD): {e}")
-        else:
-            d = date.today()
+        d = parse_expense_date(args.date)
         if args.amount <= 0:
             raise SystemExit("--amount must be positive.")
         return Expense(
