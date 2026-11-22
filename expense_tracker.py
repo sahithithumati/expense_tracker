@@ -16,7 +16,7 @@ import argparse
 import csv
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Iterable, Dict, List
+from typing import Iterable, Dict, List, Optional
 from datetime import date, datetime
 from collections import defaultdict
 
@@ -59,6 +59,25 @@ def ensure_file_exists() -> None:
             writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
             writer.writeheader()
 
+def _expense_from_row(row: Dict[str, str]) -> Optional[Expense]:
+    expense_date = row.get("date")
+    amount = row.get("amount")
+    category = row.get("category")
+
+    if not expense_date or not amount or not category:
+        return None
+
+    try:
+        amount_value = float(amount)
+    except (TypeError, ValueError):
+        return None
+
+    return Expense(
+        date=expense_date,
+        amount=amount_value,
+        category=category,
+        note=row.get("note") or "",
+    )
 
 def read_expenses() -> List[Expense]:
     ensure_file_exists()
@@ -68,27 +87,11 @@ def read_expenses() -> List[Expense]:
         reader = csv.DictReader(f)
 
         for row in reader:
-            expense_date = row.get("date")
-            amount = row.get("amount")
-            category = row.get("category")
-
-            if not expense_date or not amount or not category:
-                continue
-
-            try:
-                amount_value = float(amount)
-            except (TypeError, ValueError):
-                continue
-
-            items.append(Expense(
-                date=expense_date,
-                amount=amount_value,
-                category=category,
-                note=row.get("note") or "",
-            ))
+            expense = _expense_from_row(row)
+            if expense is not None:
+                items.append(expense)
 
     return items
-
 
 def write_expense(expense: Expense) -> None:
     ensure_file_exists()
