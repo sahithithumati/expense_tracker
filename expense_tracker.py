@@ -16,12 +16,23 @@ import argparse
 import csv
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Iterable, Dict, List
+from typing import Iterable, Dict, List, Optional
 from datetime import date, datetime
 from collections import defaultdict
 
 DATA_FILE = Path(__file__).with_name("expenses.csv")
+CSV_FIELDS = ("date", "amount", "category", "note")
+def parse_expense_date(value: str | None) -> date:
+    """Parse expense date or use today's date."""
+    if not value:
+        return date.today()
 
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise SystemExit(
+            f"Invalid --date format (use YYYY-MM-DD): {error}"
+        )
 @dataclass
 class Expense:
     date: str  # ISO format YYYY-MM-DD
@@ -32,13 +43,7 @@ class Expense:
     @staticmethod
     def from_args(args: argparse.Namespace) -> "Expense":
         # Parse/validate date
-        if args.date:
-            try:
-                d = datetime.strptime(args.date, "%Y-%m-%d").date()
-            except ValueError as e:
-                raise SystemExit(f"Invalid --date format (use YYYY-MM-DD): {e}")
-        else:
-            d = date.today()
+        d = parse_expense_date(args.date)
         if args.amount <= 0:
             raise SystemExit("--amount must be positive.")
         return Expense(
@@ -51,31 +56,47 @@ class Expense:
 def ensure_file_exists() -> None:
     if not DATA_FILE.exists():
         with DATA_FILE.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["date", "amount", "category", "note"])
+            writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
             writer.writeheader()
+
+def _expense_from_row(row: Dict[str, str]) -> Optional[Expense]:
+    expense_date = row.get("date")
+    amount = row.get("amount")
+    category = row.get("category")
+
+    if not expense_date or not amount or not category:
+        return None
+
+    try:
+        amount_value = float(amount)
+    except (TypeError, ValueError):
+        return None
+
+    return Expense(
+        date=expense_date,
+        amount=amount_value,
+        category=category,
+        note=row.get("note") or "",
+    )
 
 def read_expenses() -> List[Expense]:
     ensure_file_exists()
     items: List[Expense] = []
+
     with DATA_FILE.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for row in reader:
-            try:
-                items.append(Expense(
-                    date=row["date"],
-                    amount=float(row["amount"]),
-                    category=row["category"],
-                    note=row.get("note", ""),
-                ))
-            except Exception:
-                # Skip malformed rows
-                continue
+            expense = _expense_from_row(row)
+            if expense is not None:
+                items.append(expense)
+
     return items
 
 def write_expense(expense: Expense) -> None:
     ensure_file_exists()
     with DATA_FILE.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["date", "amount", "category", "note"])
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writerow(asdict(expense))
 
 def cmd_add(args: argparse.Namespace) -> None:
