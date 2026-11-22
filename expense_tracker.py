@@ -58,23 +58,36 @@ def ensure_file_exists() -> None:
             writer = csv.DictWriter(f, fieldnames=["date", "amount", "category", "note"])
             writer.writeheader()
 
+
 def read_expenses() -> List[Expense]:
     ensure_file_exists()
     items: List[Expense] = []
+
     with DATA_FILE.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for row in reader:
-            try:
-                items.append(Expense(
-                    date=row["date"],
-                    amount=float(row["amount"]),
-                    category=row["category"],
-                    note=row.get("note", ""),
-                ))
-            except Exception:
-                # Skip malformed rows
+            expense_date = row.get("date")
+            amount = row.get("amount")
+            category = row.get("category")
+
+            if not expense_date or not amount or not category:
                 continue
+
+            try:
+                amount_value = float(amount)
+            except (TypeError, ValueError):
+                continue
+
+            items.append(Expense(
+                date=expense_date,
+                amount=amount_value,
+                category=category,
+                note=row.get("note") or "",
+            ))
+
     return items
+
 
 def write_expense(expense: Expense) -> None:
     ensure_file_exists()
