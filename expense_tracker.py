@@ -21,6 +21,7 @@ from datetime import date, datetime
 from collections import defaultdict
 
 DATA_FILE = Path(__file__).with_name("expenses.csv")
+CSV_FIELDS = ("date", "amount", "category", "note")
 def parse_expense_date(value: str | None) -> date:
     """Parse expense date or use today's date."""
     if not value:
@@ -55,7 +56,7 @@ class Expense:
 def ensure_file_exists() -> None:
     if not DATA_FILE.exists():
         with DATA_FILE.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["date", "amount", "category", "note"])
+            writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
             writer.writeheader()
 
 
@@ -92,7 +93,7 @@ def read_expenses() -> List[Expense]:
 def write_expense(expense: Expense) -> None:
     ensure_file_exists()
     with DATA_FILE.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["date", "amount", "category", "note"])
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writerow(asdict(expense))
 
 def cmd_add(args: argparse.Namespace) -> None:
